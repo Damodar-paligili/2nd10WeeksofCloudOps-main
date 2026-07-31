@@ -1,11 +1,12 @@
+cat > Jenkins-Pipeline-Code/Jenkinsfile-Backend << 'EOF'
 pipeline {
-    agent any 
+    agent any
     tools {
         jdk 'jdk'
         nodejs 'nodejs'
     }
     environment  {
-        SCANNER_HOME=tool 'sonar-scanner'
+        // SCANNER_HOME=tool 'sonar-scanner'   // Not using SonarQube currently
         AWS_ACCOUNT_ID = credentials('ACCOUNT_ID')
         AWS_ECR_REPO_NAME = credentials('ECR_REPO2')
         AWS_DEFAULT_REGION = 'us-east-1'
@@ -19,34 +20,34 @@ pipeline {
         }
         stage('Checkout from Git') {
             steps {
-                git branch: 'main', url: 'https://github.com/CloudTechDevOps/2nd10WeeksofCloudOps-main.git'
+                git branch: 'main', url: 'https://github.com/Damodar-paligili/2nd10WeeksofCloudOps-main.git'
             }
         }
-        stage('Sonarqube Analysis') {
-            steps {
-                dir('backend') {
-                    withSonarQubeEnv('sonar-server') {
-                        sh ''' $SCANNER_HOME/bin/sonar-scanner \
-                        -Dsonar.projectName=three-tier-backend \
-                        -Dsonar.projectKey=three-tier-backend '''
-                    }
-                }
-            }
-        }
-        stage('Quality Check') {
-            steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token' 
-                }
-            }
-        }
-        stage('Trivy File Scan') {
-            steps {
-                dir('backend') {
-                    sh 'trivy fs . > trivyfs.txt'
-                }
-            }
-        }
+        // stage('Sonarqube Analysis') {
+        //     steps {
+        //         dir('backend') {
+        //             withSonarQubeEnv('sonar-server') {
+        //                 sh ''' $SCANNER_HOME/bin/sonar-scanner \
+        //                 -Dsonar.projectName=three-tier-backend \
+        //                 -Dsonar.projectKey=three-tier-backend '''
+        //             }
+        //         }
+        //     }
+        // }
+        // stage('Quality Check') {
+        //     steps {
+        //         script {
+        //             waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
+        //         }
+        //     }
+        // }
+        // stage('Trivy File Scan') {
+        //     steps {
+        //         dir('backend') {
+        //             sh 'trivy fs . > trivyfs.txt'
+        //         }
+        //     }
+        // }
         stage("Docker Image Build") {
             steps {
                 script {
@@ -67,32 +68,27 @@ pipeline {
                 }
             }
         }
-        stage("TRIVY Image Scan") {
-            steps {
-                sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt' 
-            }
-        }
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/CloudTechDevOps/2nd10WeeksofCloudOps-main.git'
-            }
-        }
+        // stage("TRIVY Image Scan") {
+        //     steps {
+        //         sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt'
+        //     }
+        // }
         stage('Update Deployment file') {
             environment {
                 GIT_REPO_NAME = "2nd10WeeksofCloudOps-main"
-                GIT_USER_NAME = "CloudTechDevOps"
+                GIT_USER_NAME = "Damodar-paligili"
             }
             steps {
                 dir('kubernetes-files') {
                     withCredentials([string(credentialsId: 'my-git-pattoken', variable: 'git_token')]) {
                         sh '''
-                            git config user.email "cloud87777@gmail.com"
-                            git config user.name "CloudTechDevOps"
+                            git config user.email "you@example.com"
+                            git config user.name "Damodar-paligili"
                             BUILD_NUMBER=${BUILD_NUMBER}
                             echo $BUILD_NUMBER
                             sed -i "s#image:.*#image: $REPOSITORY_URI$AWS_ECR_REPO_NAME:$BUILD_NUMBER#g" backend-deployment.yaml
                             git add .
-                            git commit -m "Update deployment Image to version \${BUILD_NUMBER}"
+                            git commit -m "Update backend deployment image to version \${BUILD_NUMBER}"
                             git push https://${git_token}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
                         '''
                     }
@@ -101,3 +97,4 @@ pipeline {
         }
     }
 }
+EOF
